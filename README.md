@@ -2,8 +2,7 @@
 
 Experimentations with [flag algebras](http://people.cs.uchicago.edu/~razborov/files/flag.pdf) for graphs of maximum degree `Δ`, when both `Δ` and `n/Δ` can be large.
 
-This module contains is a small set of helper function and a set of example based on the
-[flag algebra library](https://docs.rs/flag-algebra).
+This module contains a small set of helper functions and some examples built on top of a [flag algebra library](https://docs.rs/flag-algebra).
 
 ## Requirements
 
