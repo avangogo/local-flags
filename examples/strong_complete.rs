@@ -20,40 +20,43 @@ fn strong_degree() -> V {
     )
 }
 
-fn one(n: usize) -> V {
-    let single_vertex: F = Graph::new(1, &[]).into();
-    single_vertex.project(n).untype()
+// Return true if the graph contains an induced 2K2
+fn contains_a_2k2(g: &Graph) -> bool {
+    for (u1, v1) in g.edges() {
+        for (u2, v2) in g.edges() {
+            if !g.edge(u1, u2) &&
+               !g.edge(u1, v2) &&
+               !g.edge(v1, u2) &&
+               !g.edge(v1, v2) {
+                   return true
+               }
+        }
+    };
+    false
 }
 
+fn one(n: usize) -> V {
+    let vertex: F = Graph::new(1, &[]).into();
+    let t = Type::from_flag(&vertex);
+    let edge = Degree::extension(t, 0); // Edge rooted on one side, its value of it is at most 1
+    let mut result = edge.clone();
+    for _ in 2..n {
+        result = &result * &edge
+    }
+    result.untype()
+}
+    
 // Sum of graphs containing a 2K2
-fn not_strong_clique(size: usize) -> V {
-    Basis::new(size).from_indicator( |g: &F, _|{
-        let n = g.content.size();
-        for (a1, a2) in g.content.edges() {
-            for b1 in 0..n {
-                if b1 != a1 && b1 != a2 {
-                    for b2 in (b1 + 1)..n {
-                        if g.content.edge(b1, b2) &&
-                            b2 != a1 &&
-                            b2 != a2 &&
-                            !g.content.edge(a1, b1) &&
-                            !g.content.edge(a2, b1) &&
-                            !g.content.edge(a1, b2) &&
-                            !g.content.edge(a2, b2) {
-                                return true
-                            }
-                    }
-                }
-            }
-        };
-        false
+fn flags_with_2k2(size: usize) -> V {
+    Basis::new(size).from_indicator(|g: &F, _|{
+        contains_a_2k2(&g.content)
     })
 }
 
 pub fn main() {
     init_default_log();
-    
-    let n = 6;
+
+    let n = 6; // Maximal size of flags
     let basis = Basis::new(n);
     let edge: F = Graph::new(2, &[(0,1)]).into(); 
     // We optimize the average strong degree,
@@ -61,8 +64,9 @@ pub fn main() {
     let obj = ( strong_degree() * edge.project(n-2)).untype();
     let mut ineqs = vec![
         flags_are_nonnegative(basis),
-        not_strong_clique(n).at_most(0)
+        flags_with_2k2(n).at_most(0)
     ];
+    
     ineqs.push( one(n).at_most(1) );
     ineqs.append( &mut Degree::regularity(basis));
 
@@ -73,5 +77,5 @@ pub fn main() {
     };
 
     let value = -pb.solve_csdp("strong_complete").expect("Failed running csdp");
-    println!("Maximal number of edges: {:?} times Δ choose 2", value);
+    println!("Maximal number of edges: {:?} times (Δ choose 2)", value);
 }
