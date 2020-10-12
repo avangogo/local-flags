@@ -28,9 +28,8 @@ You can check that `cargo` is installed and that you are at the right place  wit
 cargo test
 ```
 
-To run one of the example of the `example/` folder, for instance `example/strong_complete.rs`.
+To run one of the examples of the `example/` folder, for instance `example/strong_complete.rs`.
 ```
 cargo run --release --example strong_complete
-
 ```
 The first compilation may be quite long. The first execution can also take time because the library needs to compute lists of graphs and the matrices of some flag operators. These later are stored in files for later computations. Eventually, the bottleneck is the SDP solver.
