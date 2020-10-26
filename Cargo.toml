@@ -15,4 +15,4 @@ canonical-form = "0.9.4"
 typenum = "1.12.0"
 num = "0.3.0"
 sprs-ldl = "0.7.0"
-flag-algebra = "0.1.8"
+flag-algebra = { git="https://github.com/avangogo/rust-flag-algebra.git" }

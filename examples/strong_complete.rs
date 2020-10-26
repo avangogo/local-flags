@@ -66,6 +66,9 @@ pub fn main() {
         flags_are_nonnegative(basis),
         flags_with_2k2(n).at_most(0)
     ];
+
+    flags_with_2k2(n).html("2k2free");
+    basis.html("basis");
     
     ineqs.push( one(n).at_most(1) );
     ineqs.append( &mut Degree::regularity(basis));

@@ -4,7 +4,8 @@ use ndarray::ScalarOperand;
 use num::{FromPrimitive, Num, One, Zero};
 use std::collections::BTreeSet;
 use std::fmt::Display;
-use std::ops::AddAssign;
+use std::ops::{AddAssign, Neg};
+use std::marker::{Sync, Send};
 
 // Returns a list of representative of the orbit classes
 // of F under the action of its automorphism group
@@ -28,7 +29,7 @@ pub trait Degree: Flag {
     fn is_edge(&self, u: usize, v: usize) -> bool;
 
     /// Weighted sum of flags extending t on vertex i
-    fn extension<N: One + Zero>(t: Type, i: usize) -> QFlag<N, Self> {
+    fn extension<N: One + Zero>(t: Type<Self>, i: usize) -> QFlag<N, Self> {
         assert!(i < t.size);
         assert!(t.size <= 12);
         let b = Basis::new(t.size + 1).with_type(t);
@@ -72,6 +73,29 @@ pub trait Degree: Flag {
                         - Degree::extension(t, orbits[next_i]))
                     .untype();
                     res.push(v.non_negative());
+                }
+            }
+        }
+        res
+    }
+    fn weaker_regularity<N>(basis: Basis<Self>, type_size: usize) -> Vec<Ineq<N, Self>>
+    where
+        N: Clone + Neg<Output=N> + core::iter::Sum + Default + Send + Sync + Num + FromPrimitive + Display + AddAssign + ScalarOperand + Copy,
+    {
+        assert_eq!(basis.t, Type::empty());
+        assert!(type_size >= 1);
+        assert!(type_size < basis.size);
+        let flags_type = Basis::<Self>::new(type_size).get();
+        let mut res = Vec::new();
+        for (id, flag) in flags_type.iter().enumerate() {
+            let orbits = vertex_orbits(flag);
+            if orbits.len() >= 2 {
+                let t = Type::new(type_size, id);
+                for i in 0..orbits.len() {
+                    let next_i = (i + 1) % orbits.len();
+                    let v = (Degree::extension(t, orbits[i])
+                             - Degree::extension(t, orbits[next_i]));
+                    res.push(v.non_negative().multiply_and_unlabel(basis));
                 }
             }
         }
