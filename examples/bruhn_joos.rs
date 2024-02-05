@@ -1,16 +1,14 @@
-/// Code to generate the proof that the square of the linegraph of a
+/// Code to generate the proof that the square of the line graph of a
 /// graph of maximum degree Δ has maximum degree at most 3/2 * Δ^2.
-
 extern crate flag_algebra;
 extern crate local_flags;
 
-use flag_algebra::*;
 use flag_algebra::flags::{Colored, Graph};
+use flag_algebra::*;
 use local_flags::Degree;
-use typenum::U2;
-use std::convert::TryInto;
 
-type G = Colored<Graph,U2>;
+
+type G = Colored<Graph, 2>;
 #[derive(Debug, Clone, Copy)]
 pub enum Connected {}
 type F = SubClass<G, Connected>;
@@ -22,47 +20,42 @@ impl SubFlag<G> for Connected {
     const SUBCLASS_NAME: &'static str = "Connected 2-colored graphs";
 
     const HEREDITARY: bool = false;
-    
+
     fn is_in_subclass(flag: &G) -> bool {
         // Each connected component contains a vertex colored 0
-        flag.is_connected_to(|i|{ flag.color[i] == 0 })
+        flag.is_connected_to(|i| flag.color[i] == 0)
     }
 }
 
 fn connected_edges(g: &F, e1: &[usize; 2], e2: &[usize; 2]) -> bool {
     for &u1 in e1 {
         for &u2 in e2 {
-            if g.content.content.edge(u1, u2) { return true }
+            if g.content.content.edge(u1, u2) {
+                return true;
+            }
         }
     }
     false
 }
 
 // The three ways to split a 4-elements set into two parts of size 2
-const SPLIT: [([usize; 2], [usize; 2]); 3] =
-    [
-        ([0, 1], [2, 3]),
-        ([0, 2], [1, 3]),
-        ([0, 3], [1, 2]),
-    ];
+const SPLIT: [([usize; 2], [usize; 2]); 3] = [([0, 1], [2, 3]), ([0, 2], [1, 3]), ([0, 3], [1, 2])];
 
 fn strong_density() -> V {
-    Basis::new(4).from_coeff(
-        | g: &F, _ | {
-            let mut res = 0;
-            for (e1, e2) in &SPLIT {
-                if g.content.content.edge(e1[0], e1[1])
-                    && g.content.content.edge(e2[0], e2[1])
-                    && (e1.iter().any(|&v|{ g.content.color[v] == 0 } ))
-                    && (e2.iter().any(|&v|{ g.content.color[v] == 0 } )) {
-                    if connected_edges(g, e1.try_into().unwrap(), e2.try_into().unwrap()) {
-                        res += 1
-                    }
-                }
+    Basis::new(4).qflag_from_coeff(|g: &F, _| {
+        let mut res = 0;
+        for (e1, e2) in &SPLIT {
+            if g.content.content.edge(e1[0], e1[1])
+                && g.content.content.edge(e2[0], e2[1])
+                && (e1.iter().any(|&v| g.content.color[v] == 0))
+                && (e2.iter().any(|&v| g.content.color[v] == 0))
+                && connected_edges(g, e1, e2)
+            {
+                res += 1
             }
-            res as N / 24.
         }
-    )
+        res as N / 24.
+    })
 }
 
 fn ones(n: usize, k: usize) -> V {
@@ -85,13 +78,15 @@ pub fn main() {
     ineqs.append(&mut Degree::regularity(basis));
 
     let pb = Problem::<N, _> {
-        ineqs: ineqs,
+        ineqs,
         cs: basis.all_cs(),
         obj: -obj,
-    }.no_scale();
+    }
+    .no_scale();
 
-    let result = -pb.solve_csdp("maximum_strong_edge_degree")
+    let result = -pb
+        .solve_csdp("maximum_strong_edge_degree")
         .expect("Cannot run csdp");
-    
+
     println!("Optimal value: {}", result); // The answer must be 1.5
 }

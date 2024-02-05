@@ -12,7 +12,7 @@ sudo apt install cargo
 ```
 You need to have the `csdp` command line installed to solve semi-definite optimization problems.
 ```
-sudo apt install coinor-csdp
+sudo apt install cmake gfortran coinor-csdp
 ```
 
 ## Usage

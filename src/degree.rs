@@ -2,10 +2,11 @@ use flag_algebra::flags::{CGraph, Colored, Graph};
 use flag_algebra::*;
 use ndarray::ScalarOperand;
 use num::{FromPrimitive, Num, One, Zero};
+use sprs::MulAcc;
 use std::collections::BTreeSet;
 use std::fmt::Display;
+use std::marker::{Send, Sync};
 use std::ops::{AddAssign, Neg};
-use std::marker::{Sync, Send};
 
 // Returns a list of representative of the orbit classes
 // of F under the action of its automorphism group
@@ -33,7 +34,7 @@ pub trait Degree: Flag {
         assert!(i < t.size);
         assert!(t.size <= 12);
         let b = Basis::new(t.size + 1).with_type(t);
-        b.from_indicator(ext()[i])
+        b.qflag_from_indicator(move |flag, type_size| flag.is_edge(i, type_size))
             .named(format!("ext({{{}}}, {})", t.print_concise(), i))
     }
 
@@ -44,7 +45,7 @@ pub trait Degree: Flag {
         assert!(0 < k);
         let t = Type::from_flag(self);
         let basis = Basis::new(n).with_type(t);
-        basis.from_coeff(move |g: &Self, s| {
+        basis.qflag_from_coeff(move |g: &Self, s| {
             assert_eq!(s, k);
             if (k..n).all(|i| g.is_edge(0, i)) {
                 N::one()
@@ -80,7 +81,18 @@ pub trait Degree: Flag {
     }
     fn weaker_regularity<N>(basis: Basis<Self>, type_size: usize) -> Vec<Ineq<N, Self>>
     where
-        N: Clone + Neg<Output=N> + core::iter::Sum + Default + Send + Sync + Num + FromPrimitive + Display + AddAssign + ScalarOperand + Copy,
+        N: Num
+            + Clone
+            + Send
+            + Sync
+            + Default
+            + FromPrimitive
+            + AddAssign
+            + std::iter::Sum
+            + MulAcc
+            + Neg<Output = N>
+            + ndarray::ScalarOperand
+            + Display,
     {
         assert_eq!(basis.t, Type::empty());
         assert!(type_size >= 1);
@@ -93,8 +105,7 @@ pub trait Degree: Flag {
                 let t = Type::new(type_size, id);
                 for i in 0..orbits.len() {
                     let next_i = (i + 1) % orbits.len();
-                    let v = (Degree::extension(t, orbits[i])
-                             - Degree::extension(t, orbits[next_i]));
+                    let v = Degree::extension(t, orbits[i]) - Degree::extension(t, orbits[next_i]);
                     res.push(v.non_negative().multiply_and_unlabel(basis));
                 }
             }
@@ -133,31 +144,6 @@ pub trait Degree: Flag {
     }
 }
 
-// Workaround to have function pointers computing the extensions
-macro_rules! ext {
-    ($i:expr) => {
-        |flag, type_size| flag.is_edge($i, type_size)
-    };
-}
-
-fn ext<F: Degree>() -> [fn(&F, usize) -> bool; 13] {
-    [
-        ext!(0),
-        ext!(1),
-        ext!(2),
-        ext!(3),
-        ext!(4),
-        ext!(5),
-        ext!(6),
-        ext!(7),
-        ext!(8),
-        ext!(9),
-        ext!(10),
-        ext!(11),
-        ext!(12),
-    ]
-}
-
 // Implementations for classes of flags
 impl Degree for Graph {
     fn is_edge(&self, u: usize, v: usize) -> bool {
@@ -165,12 +151,12 @@ impl Degree for Graph {
     }
 }
 
-impl<E> Degree for CGraph<E>
+impl<const C: u8> Degree for CGraph<C>
 where
-    CGraph<E>: Flag,
+    CGraph<C>: Flag,
 {
     fn is_edge(&self, u: usize, v: usize) -> bool {
-        CGraph::is_edge(&self, u, v)
+        CGraph::is_edge(self, u, v)
     }
 }
 
@@ -185,10 +171,10 @@ where
     }
 }
 
-impl<F, N> Degree for Colored<F, N>
+impl<F, const C: u8> Degree for Colored<F, C>
 where
     F: Degree,
-    Colored<F, N>: Flag,
+    Colored<F, C>: Flag,
 {
     fn is_edge(&self, u: usize, v: usize) -> bool {
         self.content.is_edge(u, v)

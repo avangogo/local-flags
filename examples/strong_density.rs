@@ -1,14 +1,10 @@
-#![allow(
-    unused_must_use,
-    unused_variables
-)]
+#![allow(unused_must_use, unused_variables)]
 extern crate flag_algebra;
 extern crate local_flags;
 
+use flag_algebra::flags::{CGraph, Colored};
 use flag_algebra::*;
-use flag_algebra::flags::{Colored, CGraph};
 use local_flags::Degree;
-use typenum::{U2,U3};
 use num::pow::Pow;
 
 // ## I - Flag definition
@@ -17,7 +13,7 @@ use num::pow::Pow;
 // We use Edge- and Vertex-colored Graphs
 // with vertices colored with 2 colors for the vertices (0 and 1)
 // and 3 colors for the edges (0, 1, 2 where 0 means "no edge")
-type G = Colored<CGraph<U3>,U2>;
+type G = Colored<CGraph<3>, 2>;
 
 // # Color Names
 // Colors of vertices
@@ -30,7 +26,7 @@ const SHADOW_EDGE: u8 = 2; // The other edges
 // # Restricting to a subclass `F`
 // To reduce the combinatorial explosion, we consider only subgraph where
 // * Shadow edges are all in E(X, Y)
-// * Connected components each contain an element of X  
+// * Connected components each contain an element of X
 #[derive(Debug, Clone, Copy)]
 pub enum StrongDensityFlag {}
 type F = SubClass<G, StrongDensityFlag>; // `F` is the type of restricted flags
@@ -41,7 +37,7 @@ fn shadow_edges_are_from_x_to_y(flag: &G) -> bool {
         for u2 in 0..u1 {
             if flag.edge(u1, u2) == SHADOW_EDGE {
                 match (flag.color[u1], flag.color[u2]) {
-                    (X, X)| (Y, Y) => return false,
+                    (X, X) | (Y, Y) => return false,
                     _ => (),
                 }
             }
@@ -68,11 +64,13 @@ impl SubFlag<G> for StrongDensityFlag {
 type N = f64; // Scalar field used
 type V = QFlag<N, F>; // Vectors of the flag algebra (quantum flags)
 
-// Returns wether `e1` and `e2` are adjacent in `L(g)^2` 
+// Returns wether `e1` and `e2` are adjacent in `L(g)^2`
 fn connected_edges(g: &F, e1: &[usize; 2], e2: &[usize; 2]) -> bool {
     for &u1 in e1 {
         for &u2 in e2 {
-            if g.is_edge(u1, u2) { return true }
+            if g.is_edge(u1, u2) {
+                return true;
+            }
         }
     }
     false
@@ -82,55 +80,49 @@ fn connected_edges(g: &F, e1: &[usize; 2], e2: &[usize; 2]) -> bool {
 fn degenerated_strong_degree(t: Type<F>) -> V {
     assert_eq!(t.size, 2); // t is the type of an edge
     let basis = Basis::new(4).with_type(t);
-    basis.from_indicator(
-        | g: &F, _ | {
-            assert!(g.is_edge(0, 1));
-            g.edge(2, 3) == EDGE && connected_edges(g, &[0, 1], &[2, 3])
-        }
-    )
+    basis.qflag_from_indicator(|g: &F, _| {
+        assert!(g.is_edge(0, 1));
+        g.edge(2, 3) == EDGE && connected_edges(g, &[0, 1], &[2, 3])
+    })
 }
 
 // S(t)
 fn degree_in_neighbourhood(t: Type<F>) -> V {
     assert_eq!(t.size, 2);
     let basis = Basis::new(4).with_type(t);
-    basis.from_indicator(
-        | g: &F, _ | {
-            (g.content.color[2] == X || g.content.color[3] == X)
-                && g.edge(2, 3) == EDGE
-                && connected_edges(g, &[0, 1], &[2, 3])
-        }
-    )
+    basis.qflag_from_indicator(|g: &F, _| {
+        (g.content.color[2] == X || g.content.color[3] == X)
+            && g.edge(2, 3) == EDGE
+            && connected_edges(g, &[0, 1], &[2, 3])
+    })
 }
 
 // Sum of flags with type `t` and size `t.size + 1` where the extra vertex is in X
 fn extension_in_x(t: Type<F>) -> V {
     let b = Basis::new(t.size + 1).with_type(t);
-    b.from_indicator( |g: &F, type_size|{
-        g.content.color[type_size] == X
-    } ).named(format!("ext_in_x({{{}}})", t.print_concise()))
+    b.qflag_from_indicator(|g: &F, type_size| g.content.color[type_size] == X)
+        .named(format!("ext_in_x({{{}}})", t.print_concise()))
 }
 
 // Equalities expressing that extensions in X have twice the weight of extensions through an edge
 fn size_of_x(n: usize) -> Vec<Ineq<N, F>> {
     let mut res = Vec::new();
-    for t in Type::types_with_size(n-1) {
-        let diff =  Degree::extension(t, 0) - extension_in_x(t) * 0.5;
-        res.push( diff.equal(0.).multiply_and_unlabel(Basis::new(n)) );
+    for t in Type::types_with_size(n - 1) {
+        let diff = Degree::extension(t, 0) - extension_in_x(t) * 0.5;
+        res.push(diff.equal(0.).multiply_and_unlabel(Basis::new(n)));
     }
     res
 }
 
 // The type corresponding to a (non-shadow) edge with vertices colored  `color1` and `color2`
 fn edge_type(color1: u8, color2: u8) -> Type<F> {
-    let e: F = Colored::new(CGraph::new(2, &[((0,1), EDGE)]), vec![color1, color2]).into();
+    let e: F = Colored::new(CGraph::new(2, &[((0, 1), EDGE)]), vec![color1, color2]).into();
     Type::from_flag(&e)
 }
 
 pub fn main() {
     init_default_log();
-    //init_debug_log();
-    
+
     let mut acc: Vec<(f64, f64)> = Vec::new();
 
     let n = 4; // Can be pushed to 5
@@ -140,25 +132,25 @@ pub fn main() {
     let xx_edge = edge_type(X, X);
 
     // Objective function
-    let obj = 
-        (degree_in_neighbourhood(xy_edge) * Degree::extension(xy_edge,0).pow(n-4)).untype() * 0.25
-        + (degree_in_neighbourhood(xx_edge) * Degree::extension(xx_edge, 0).pow(n-4)).untype() * 0.125;
-    
+    let obj = (degree_in_neighbourhood(xy_edge) * Degree::extension(xy_edge, 0).pow(n - 4))
+        .untype()
+        * 0.25
+        + (degree_in_neighbourhood(xx_edge) * Degree::extension(xx_edge, 0).pow(n - 4)).untype()
+            * 0.125;
+
     for i in 0..20 {
-        let eta = 0.025*(i as f64 + 1.);
+        let eta = 0.025 * (i as f64 + 1.);
 
         // Linear constraints
         let mut ineqs = vec![
-            flags_are_nonnegative(basis), // F >= 0 for every flag 
+            flags_are_nonnegative(basis), // F >= 0 for every flag
         ];
 
-        
         // 1. The graph of non-shadow edges of E(X, Y) are not (2 - η)∆²-degenerated
         let ext: V = Degree::extension(xy_edge, 0);
-        let v1 = degenerated_strong_degree(xy_edge)
-            - &ext * &ext * 2. * (2. - eta);
+        let v1 = degenerated_strong_degree(xy_edge) - &ext * &ext * 2. * (2. - eta);
         ineqs.push(v1.non_negative().multiply_and_unlabel(basis));
-        
+
         // 2. Every vertex has same degree ∆
         ineqs.append(&mut Degree::weaker_regularity(basis, 3));
 
@@ -167,19 +159,17 @@ pub fn main() {
         ineqs.append(&mut size_of_x(n));
 
         // 3.2. The number of n-flags included in X is at most (2∆ choose n) ≈ 2^n * (∆ choose n)
-        let flag_in_x = basis.from_indicator(
-            | g: &F, _ | {
-                g.content.color.iter().all(|&c| c == X)
-            }
-        );
-        ineqs.push(flag_in_x.at_most( 2.pow(n) as f64));
-        
+        let flag_in_x =
+            basis.qflag_from_indicator(|g: &F, _| g.content.color.iter().all(|&c| c == X));
+        ineqs.push(flag_in_x.at_most(2.pow(n) as f64));
+
         // Assembling the problem
         let pb = Problem::<N, _> {
-            ineqs: ineqs,
+            ineqs,
             cs: basis.all_cs(), // Use all Cauchy-Schwarz inequalities with a matching size
             obj: -obj.clone(),
-        }.no_scale();
+        }
+        .no_scale();
 
         let mut f = FlagSolver::new(pb, "strong_density").protect(0);
         f.init();

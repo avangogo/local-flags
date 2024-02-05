@@ -3,16 +3,16 @@ name = "local-flags"
 version = "0.1.0"
 description = "Experimetations with flag algebras for graphs of maximum degree Δ, when 1 ≪ Δ ≪ n."
 authors = ["Rémi de Verclos"]
-edition = "2018"
+edition = "2021"
 readme = "README.md"
 keywords = ["graph", "combinatorics", "optimization"]
 
 [dependencies]
-ndarray = "0.13.1"
-serde = "1.0.116"
-serde_derive = "1.0.116"
-canonical-form = "0.9.4"
-typenum = "1.12.0"
-num = "0.3.0"
+ndarray = "0.15"
+serde = "1.0"
+serde_derive = "1.0"
+canonical-form = "0.10.0"
+num = "0.4.1"
 sprs-ldl = "0.7.0"
+sprs = "0.11"
 flag-algebra = { git="https://github.com/avangogo/rust-flag-algebra.git" }
